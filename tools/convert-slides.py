@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 import sys
 import lxml.etree
+import lxml.html
 from copy import deepcopy
 
 SVG_NS = {'svg': "http://www.w3.org/2000/svg"}
