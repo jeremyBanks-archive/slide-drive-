@@ -2,6 +2,7 @@
 import sys
 import lxml.etree
 import lxml.html
+import lxml.html.builder
 from copy import deepcopy
 
 SVG_NS = {'svg': "http://www.w3.org/2000/svg"}
@@ -14,7 +15,7 @@ def main(*argv):
 
     filename = argv[1]
 
-    svg_doc = lxml.etree.parse(filename, lxml.etree.XMLParser())
+    svg_doc = lxml.etree.parse(filename, lxml.etree.XMLParser(encoding="UTF-8"))
 
     for slide_title in svg_doc.findall(".//svg:g[@class='com.sun.star.presentation.TitleTextShape']", namespaces=SVG_NS):
         title = get_text(slide_title).strip()
@@ -28,7 +29,7 @@ def main(*argv):
     
     html_doc = prepare_html(processed_slides, title)
     
-    sys.stdout.write(lxml.etree.tostring(html_doc, encoding='UTF-8',  pretty_print=True, method="html"))
+    sys.stdout.write(lxml.etree.tostring(html_doc, encoding="UTF-8",  pretty_print=True, method="html"))
     sys.exit(0)
 
 def process_svg(svg_doc):
@@ -83,17 +84,26 @@ def prepare_html(slides, title=None):
     
     for i, slide in enumerate(slides):
         htmlized_slide =  lxml.html.fragment_fromstring(
-            lxml.etree.tostring(slide), lxml.etree.HTMLParser())
-            
+            lxml.etree.tostring(slide, encoding="UTF-8"),
+            parser=lxml.etree.HTMLParser(encoding="UTF-8"),
+            create_parent="section")
+        
         htmlized_slide.attrib["class"] = "slide"
         htmlized_slide.attrib["popcorn-slideshow"] = str(i)
         
+        # we append an empty transcript element, to be filled later.
+        htmlized_slide.append(lxml.html.builder.DIV(**{"class": "transcript"}))
+        
         container.insert(i, htmlized_slide)
+    
+    html_doc.find(".//span[@class='deck-status-total']").text = str(len(slides))
     
     return html_doc
 
 def get_text(node, include_trailing=False):
     """Gets the text content of a node and its children, ignoring node-trailing text by default.
+    
+    lxml.etree.tostring(node, method="text") is similar but doesn't ignore internal trailing text.
     
     Intended for use on SVG text."""
     parts = []
