@@ -3,6 +3,7 @@ import sys
 import lxml.etree
 import lxml.html
 import lxml.html.builder
+import re
 from copy import deepcopy
 
 SVG_NS = {'svg': "http://www.w3.org/2000/svg"}
@@ -22,19 +23,19 @@ def main(*argv):
         break
     else:
         title = None
-    
+
     sys.stderr.write("Loaded presentation: " + title + "\n")
-    
+
     processed_slides = process_svg(svg_doc)
-    
+
     html_doc = prepare_html(processed_slides, title)
-    
+
     sys.stdout.write(lxml.etree.tostring(html_doc, encoding="UTF-8",  pretty_print=True, method="html"))
     sys.exit(0)
 
 def process_svg(svg_doc):
     """Processes an SVG document of slides and returns a list of processed individual slide documents.
-    
+
     Processing includes removing embedded fonts and rewriting references to them.
     """
     sys.stderr.write("Stripping embedded fonts.\n")
@@ -48,63 +49,80 @@ def process_svg(svg_doc):
     for embedded_font_using in svg_doc.findall(".//*[@font-family]", namespaces=SVG_NS):
         if not embedded_font_using.attrib["font-family"].endswith(" embedded"):
             continue
-    
+
         embedded_font_using.attrib["font-family"] = embedded_font_using.attrib["font-family"][:-len(" embedded")]
-    
+
     processed_slides = []
-    
+
     sys.stderr.write("Generating individual SVG documents for each slide.\n")
-    
+
     for slide in svg_doc.findall(".//svg:g[@class='Slide']", namespaces=SVG_NS):
         slide_doc = deepcopy(svg_doc)
-    
+
         for potential_slide in slide_doc.findall(".//svg:g[@class='Slide']", namespaces=SVG_NS):
             if potential_slide.attrib["id"] != slide.attrib["id"]:
                 potential_slide.getparent().remove(potential_slide)
             else:
                 potential_slide.attrib["visibility"] = "visible"
-        
+
         processed_slides.append(slide_doc)
-    
+
     return processed_slides
 
 def prepare_html(slides, title=None):
     """Takes a list of SVG documents and produces an HTML document presenting them."""
-    
+
     sys.stderr.write("Importing template\n")
     html_doc = lxml.etree.parse("../index.html", lxml.etree.HTMLParser(recover=True, encoding="UTF-8"))
-    
+
     html_doc.find(".//title").text = title or "Untitled Presentation"
-    
+
     container = html_doc.find("//*[@class='deck-container']")
-    
+
     for element in container.getchildren():
         if "slide" in element.attrib["class"]:
             container.remove(element)
-    
+
+    cumulative_time = 0
+
     for i, slide in enumerate(slides):
         htmlized_slide =  lxml.html.fragment_fromstring(
             lxml.etree.tostring(slide, encoding="UTF-8"),
             parser=lxml.etree.HTMLParser(encoding="UTF-8"),
             create_parent="section")
-        
+
         htmlized_slide.attrib["class"] = "slide"
-        htmlized_slide.attrib["popcorn-slideshow"] = str(i)
-        
+
+        # assign a default slide duration based on the amount of text in the slide.
+        # this is crude, but should provide a better starting point than fixed-lenght.
+
+        slide_text = lxml.etree.tostring(htmlized_slide, method="text", encoding="UTF-8")
+        slide_alpha = re.sub(r"[^a-zA-Z]+", "", slide_text)
+        slide_duration = len(slide_alpha) / 14
+
+        if slide_duration < 5:
+            slide_duration = 5
+        if slide_duration > 30:
+            slide_duration = 30
+
+        htmlized_slide.attrib["popcorn-slideshow"] = str(cumulative_time)
+
+        cumulative_time += slide_duration
+
         # we append an empty transcript element, to be filled later.
         htmlized_slide.append(lxml.html.builder.DIV(**{"class": "transcript"}))
-        
+
         container.insert(i, htmlized_slide)
-    
+
     html_doc.find(".//span[@class='deck-status-total']").text = str(len(slides))
-    
+
     return html_doc
 
 def get_text(node, include_trailing=False):
     """Gets the text content of a node and its children, ignoring node-trailing text by default.
-    
+
     lxml.etree.tostring(node, method="text") is similar but doesn't ignore internal trailing text.
-    
+
     Intended for use on SVG text."""
     parts = []
     if node.text is not None:
