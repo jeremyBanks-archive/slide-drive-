@@ -9,6 +9,10 @@ $(function() {
 	$.deck(".slide");
   $.deck("enableScale");
 
+  if ( window.Butter != null ) {
+    $.deck( "getOptions" ).keys = {};
+  }
+
   var showingPrintable = false,
       alreadyCalled = false;
 	
