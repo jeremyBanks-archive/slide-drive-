@@ -5,7 +5,6 @@ addEventListener( "DOMContentLoaded", function() {
       showingPrintable = false,
       inButter         = !!window.Butter,
       butter           = null,
-      fromButter       = !inButter && document.querySelector( "body" ).hasAttribute( "data-butter-crufted" ),
       popcorn          = null,
       anchorTargetId   = null,
       deckInitialized  = false;
@@ -141,13 +140,11 @@ addEventListener( "DOMContentLoaded", function() {
   function init () {
     console.log( "Starting Slide Drive initialization." );
 
-    if ( fromButter ) {
-      // Butter adds <base> tag to our document to make sure the resouce paths are correct.
-      // After loading, it will break our anchor links and have nasty side-effects.
-
-      var base = document.querySelector( "base" );
-      base.parentNode.removeChild( base );
-
+    // Butter adds <base> tag to our document to make sure the resouce paths are correct.
+    // After loading, it will break our anchor links and have nasty side-effects
+    var firstBase = document.querySelector( "base" );
+    if ( firstBase ) {
+      firstBase.parentNode.removeChild( firstBase );
     }
 
     if ( window.location.hash > "#" ) {
@@ -236,6 +233,16 @@ addEventListener( "DOMContentLoaded", function() {
         var deckHashScript = document.createElement( "script" );
         deckHashScript.src = "external/deckjs/extensions/hash/deck.hash.js";
         root.querySelector( "body" ).appendChild( deckHashScript );
+        
+        // Remove Popcorn and plugins that are removed automatically, since we add those ourself.
+        var nextCruft = root.querySelector( "head .butter-activator:last" ).nextSibling,
+            currentCruft;
+        
+        while ( nextCruft ) {
+          currentCruft = nextCruft;
+          nextCruft = currentCruft.nextSibling;
+          currentCruft.parentNode.removeChild( currentCruft );
+        }
       });
 
       // Bind file drop handling to each Butter track.
@@ -772,7 +779,7 @@ addEventListener( "DOMContentLoaded", function() {
     for ( i = 0, l = root.childNodes.length; i < l; ++i ) {
       child = root.childNodes[ i ];
       
-      if ( child.nodeName === "text" ) {
+      if ( child.nodeName === "TEXT" ) {
         var textContent = child.textContent;
         
         if ( textContent.length > 0 ) {
