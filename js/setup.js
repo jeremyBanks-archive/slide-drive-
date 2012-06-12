@@ -162,7 +162,7 @@ addEventListener( "DOMContentLoaded", function() {
 
     if ( inButter ) {
       Butter({
-        config: "/external_configs/butter/config.json",
+        config: "./external_configs/butter/config.json",
         ready: function ( butter_ ) {
           butter = butter_;
           window.butter = butter; // TODO remove this after debugging
