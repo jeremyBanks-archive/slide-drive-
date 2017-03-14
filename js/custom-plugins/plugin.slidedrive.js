@@ -31,15 +31,20 @@
         }
       },
       _setup: function( options ) {
-        // Perhaps DOM-reflecting properties could be initialized here.
+        options._slideButterOptions = SD.SlideButterOptions( document.getElementById( options.slideId ) );
       }, 
       start: function( event, options ) {
+        if ( (options._slideButterOptions || options)._onstart() === false ) {
+          return;
+        }
+
         $.deck( "go", options.slideId );
-        document.getElementById( "slideshow-transcript" ).innerHTML = options.transcriptSource;
-        document.getElementById( "slideshow-transcript" ).style.padding = "5px 5px 5px 5px";
       },
       end: function( event, options ) {
-        document.getElementById( "slideshow-transcript" ).innerHTML = "";
+        if ( (options._slideButterOptions || options)._onend() === false ) {
+          return;
+        }
+
       },
     });
 })( Popcorn );
